@@ -25,6 +25,7 @@ variable "cidr" {
 variable "default_ecs_ami" {
   default = {
     us-east-1      = "ami-dde4e6ca"
+    us-east-2      = "ami-b86a5ddd"
     us-west-1      = "ami-6d21770d"
     us-west-2      = "ami-97da70f7"
     eu-west-1      = "ami-c41f3bb7"
@@ -41,6 +42,7 @@ variable "default_ecs_ami" {
 variable "default_log_account_ids" {
   default = {
     us-east-1      = "127311923021"
+    us-east-2      = "033677994240"
     us-west-2      = "797873946194"
     us-west-1      = "027434742980"
     eu-west-1      = "156460612806"
