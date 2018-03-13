@@ -11,6 +11,8 @@
  *        cluster   = "default"
  *        internal_subnets = "subnets"
  *        vpc_id    = "vpc_id"
+ *        logs_region = "logs_region"
+ *        ecs_execution_role_arn = "role_arn"
  *      }
  *
  */
@@ -70,11 +72,6 @@ variable "healthcheck" {
   default     = "/"
 }
 
-variable "container_port" {
-  description = "The container port"
-  default     = 3000
-}
-
 variable "command" {
   description = "The raw json of the task command"
   default     = "[]"
@@ -105,10 +102,6 @@ variable "protocol" {
   default     = "HTTP"
 }
 
-variable "iam_role" {
-  description = "IAM Role ARN to use"
-}
-
 variable "zone_id" {
   description = "The zone ID to create the record in"
 }
@@ -124,9 +117,16 @@ variable "deployment_maximum_percent" {
 }
 
 variable "internal_subnets" {
+  type = "list"
 }
 
 variable "vpc_id" {
+}
+
+variable "logs_region" {
+}
+
+variable "ecs_execution_role_arn" {
 }
 
 /**
@@ -138,19 +138,19 @@ resource "aws_ecs_service" "main" {
   cluster                            = "${var.cluster}"
   task_definition                    = "${module.task.arn}"
   desired_count                      = "${var.desired_count}"
-  iam_role                           = "${var.iam_role}"
   deployment_minimum_healthy_percent = "${var.deployment_minimum_healthy_percent}"
   deployment_maximum_percent         = "${var.deployment_maximum_percent}"
+  launch_type                        = "FARGATE"
 
   network_configuration = {
-    subnets = "${var.internal_subnets}"
+    subnets = ["${var.internal_subnets}"]
     security_groups = ["${var.security_groups}"]
   }
 
   load_balancer {
-    target_group_arm = "${aws_alb_target_group.main.arn}"
+    target_group_arn = "${aws_alb_target_group.main.arn}"
     container_name = "${module.task.name}"
-    container_port = "${var.container_port}"
+    container_port = "${var.port}"
   }
 
   lifecycle {
@@ -168,11 +168,13 @@ module "task" {
   env_vars      = "${var.env_vars}"
   memory        = "${var.memory}"
   cpu           = "${var.cpu}"
+  logs_region   = "${var.logs_region}"
+  ecs_execution_role_arn = "${var.ecs_execution_role_arn}"
 
   ports = <<EOF
   [
     {
-      "containerPort": ${var.container_port},
+      "containerPort": ${var.port},
       "hostPort": ${var.port}
     }
   ]
@@ -182,7 +184,7 @@ EOF
 resource "aws_alb_target_group" "main" {  
   name = "${var.name}"
   protocol = "HTTP"
-  port = "${var.container_port}"
+  port = "${var.port}"
   vpc_id = "${var.vpc_id}"
   target_type = "ip"
 

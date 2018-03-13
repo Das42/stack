@@ -18,7 +18,8 @@ resource "aws_iam_role" "default_ecs_role" {
       "Principal": {
         "Service": [
           "ecs.amazonaws.com",
-          "ec2.amazonaws.com"
+          "ec2.amazonaws.com",
+          "ecs-tasks.amazonaws.com"
         ]
       },
       "Effect": "Allow"
@@ -42,8 +43,7 @@ resource "aws_iam_role_policy" "default_ecs_service_role_policy" {
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:Describe*",
         "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
-        "elasticloadbalancing:Describe*",
-        "elasticloadbalancing:RegisterInstancesWithLoadBalancer"
+        "elasticloadbalancing:Describe*"
       ],
       "Resource": "*"
     }
@@ -100,6 +100,50 @@ resource "aws_iam_instance_profile" "default_ecs" {
   role = "${aws_iam_role.default_ecs_role.name}"
 }
 
+resource "aws_iam_role" "ecs_task_assume" {
+  name = "ecs_task_assume"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "ecs_task_assume" {
+  name = "ecs_task_assume"
+  role = "${aws_iam_role.ecs_task_assume.id}"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken", "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
 output "default_ecs_role_id" {
   value = "${aws_iam_role.default_ecs_role.id}"
 }
@@ -110,4 +154,8 @@ output "arn" {
 
 output "profile" {
   value = "${aws_iam_instance_profile.default_ecs.id}"
+}
+
+output "ecs_task_assume_arn" {
+    value = "${aws_iam_role.ecs_task_assume.arn}"
 }

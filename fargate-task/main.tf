@@ -7,6 +7,8 @@
  *       source = "github.com/segmentio/stack/task"
  *       name   = "nginx"
  *       image  = "nginx"
+ *       logs_region = "region"
+ *       ecs_execution_role_arn = "role_arn"
  *     }
  *
  */
@@ -67,9 +69,10 @@ variable "log_driver" {
   default     = "journald"
 }
 
-variable "role" {
-  description = "The IAM Role to assign to the Container"
-  default     = ""
+variable "logs_region" {
+}
+
+variable "ecs_execution_role_arn" {
 }
 
 /**
@@ -80,8 +83,9 @@ variable "role" {
 
 resource "aws_ecs_task_definition" "main" {
   family        = "${var.name}"
-  task_role_arn = "${var.role}"
-  launch_type   = "fargate"
+  execution_role_arn = "${var.ecs_execution_role_arn}"
+  requires_compatibilities = ["FARGATE"]
+  network_mode = "awsvpc"
 
   lifecycle {
     ignore_changes        = ["image"]
@@ -102,10 +106,12 @@ resource "aws_ecs_task_definition" "main" {
     "entryPoint": ${var.entry_point},
     "mountPoints": [],
     "logConfiguration": {
-      "logDriver": "${var.log_driver}",
-      "options": {
-        "tag": "${var.name}"
-      }
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group": "/ecs/myapp",
+            "awslogs-region": "${var.logs_region}",
+            "awslogs-stream-prefix": "ecs"
+        }
     }
   }
 ]

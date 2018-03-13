@@ -332,3 +332,7 @@ output "internal_route_tables" {
 output "external_route_tables" {
   value = "${module.vpc.external_rtb_id}"
 }
+
+output "ecs_task_assume_arn" {
+    value = "${module.iam_role.ecs_task_assume_arn}"
+}
