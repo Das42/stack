@@ -94,7 +94,7 @@ variable "memory" {
 
 variable "cpu" {
   description = "The number of cpu units to reserve for the container"
-  default     = 512
+  default     = 256
 }
 
 variable "protocol" {
@@ -126,6 +126,9 @@ variable "vpc_id" {
 variable "logs_region" {
 }
 
+variable "log_group" {
+}
+
 variable "ecs_execution_role_arn" {
 }
 
@@ -134,9 +137,9 @@ variable "ecs_execution_role_arn" {
  */
 
 resource "aws_ecs_service" "main" {
-  name                               = "${module.task.name}"
+  name                               = "${module.fargate_task.name}"
   cluster                            = "${var.cluster}"
-  task_definition                    = "${module.task.arn}"
+  task_definition                    = "${module.fargate_task.arn}"
   desired_count                      = "${var.desired_count}"
   deployment_minimum_healthy_percent = "${var.deployment_minimum_healthy_percent}"
   deployment_maximum_percent         = "${var.deployment_maximum_percent}"
@@ -149,26 +152,30 @@ resource "aws_ecs_service" "main" {
 
   load_balancer {
     target_group_arn = "${aws_alb_target_group.main.arn}"
-    container_name = "${module.task.name}"
+    container_name = "${module.fargate_task.name}"
     container_port = "${var.port}"
   }
+
+  depends_on = [
+    "aws_alb_listener.main"
+  ]
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-module "task" {
+module "fargate_task" {
   source = "../fargate-task"
 
   name          = "${coalesce(var.name, replace(var.image, "/", "-"))}"
   image         = "${var.image}"
   image_version = "${var.version}"
-  command       = "${var.command}"
   env_vars      = "${var.env_vars}"
   memory        = "${var.memory}"
   cpu           = "${var.cpu}"
   logs_region   = "${var.logs_region}"
+  log_group     = "${var.log_group}"
   ecs_execution_role_arn = "${var.ecs_execution_role_arn}"
 
   ports = <<EOF
@@ -179,6 +186,16 @@ module "task" {
     }
   ]
 EOF
+
+}
+
+resource "aws_alb" "main" {
+  name = "${var.name}"
+  internal = true
+
+  security_groups = ["${var.security_groups}"]
+
+  subnets = ["${var.internal_subnets}"]
 }
 
 resource "aws_alb_target_group" "main" {  
@@ -191,6 +208,19 @@ resource "aws_alb_target_group" "main" {
   health_check {
     path = "/"
   }
+}
+
+resource "aws_alb_listener" "main" {
+  load_balancer_arn = "${aws_alb.main.arn}"
+  port = "80"
+  protocol = "HTTP"
+
+  default_action {
+    target_group_arn = "${aws_alb_target_group.main.arn}"
+    type = "forward"
+  }
+
+  depends_on = ["aws_alb_target_group.main"]
 }
 
 /**

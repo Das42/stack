@@ -31,7 +31,12 @@ variable "name" {
 
 variable "cpu" {
   description = "The number of cpu units to reserve for the container"
-  default     = 512
+  default     = 256
+}
+
+variable "ports" {
+  description = "The docker container ports"
+  default     = "[]"
 }
 
 variable "env_vars" {
@@ -39,20 +44,6 @@ variable "env_vars" {
   default     = "[]"
 } # [{ "name": name, "value": value }]
 
-variable "command" {
-  description = "The raw json of the task command"
-  default     = "[]"
-} # ["--key=foo","--port=bar"]
-
-variable "entry_point" {
-  description = "The docker container entry point"
-  default     = "[]"
-}
-
-variable "ports" {
-  description = "The docker container ports"
-  default     = "[]"
-}
 
 variable "image_version" {
   description = "The docker image version"
@@ -75,17 +66,26 @@ variable "logs_region" {
 variable "ecs_execution_role_arn" {
 }
 
+variable "log_group" {
+}
+
 /**
  * Resources.
  */
 
 # The ECS task definition.
 
+resource "aws_cloudwatch_log_group" "ecs" {
+  name = "${var.log_group}"
+}
+
 resource "aws_ecs_task_definition" "main" {
   family        = "${var.name}"
   execution_role_arn = "${var.ecs_execution_role_arn}"
   requires_compatibilities = ["FARGATE"]
   network_mode = "awsvpc"
+  cpu = "${var.cpu}"
+  memory = "${var.memory}"
 
   lifecycle {
     ignore_changes        = ["image"]
@@ -95,20 +95,15 @@ resource "aws_ecs_task_definition" "main" {
   container_definitions = <<EOF
 [
   {
-    "cpu": ${var.cpu},
     "environment": ${var.env_vars},
     "essential": true,
-    "command": ${var.command},
     "image": "${var.image}:${var.image_version}",
-    "memory": ${var.memory},
     "name": "${var.name}",
     "portMappings": ${var.ports},
-    "entryPoint": ${var.entry_point},
-    "mountPoints": [],
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-            "awslogs-group": "/ecs/myapp",
+            "awslogs-group": "${var.log_group}",
             "awslogs-region": "${var.logs_region}",
             "awslogs-stream-prefix": "ecs"
         }
