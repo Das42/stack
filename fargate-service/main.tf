@@ -9,6 +9,8 @@
  *        name      = "auth-service"
  *        image     = "auth-service"
  *        cluster   = "default"
+ *        internal_subnets = "subnets"
+ *        vpc_id    = "vpc_id"
  *      }
  *
  */
@@ -121,6 +123,12 @@ variable "deployment_maximum_percent" {
   default     = 200
 }
 
+variable "internal_subnets" {
+}
+
+variable "vpc_id" {
+}
+
 /**
  * Resources.
  */
@@ -135,8 +143,8 @@ resource "aws_ecs_service" "main" {
   deployment_maximum_percent         = "${var.deployment_maximum_percent}"
 
   network_configuration = {
-    subnets = "${module.vpc.internal_subnets}"
-    security_groups = ["${module.ecs-farget-cluster.security_group_id}"]
+    subnets = "${var.internal_subnets}"
+    security_groups = ["${var.security_groups}"]
   }
 
   load_balancer {
@@ -175,7 +183,7 @@ resource "aws_alb_target_group" "main" {
   name = "${var.name}"
   protocol = "HTTP"
   port = "${var.container_port}"
-  vpc_id = "${module.base_vpc.vpc_id}"
+  vpc_id = "${var.vpc_id}"
   target_type = "ip"
 
   health_check {
